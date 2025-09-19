@@ -198,6 +198,7 @@ If you encounter issues:
 
 1. Check the troubleshooting section above
 2. Review the logs in the terminal
+3. For questions about model evaluation outputs, open the app's "Model Training" page and click "Train Models" to view per-model metrics (Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC), confusion matrices for all models, and combined ROC/PR curves.
 3. Check the Streamlit documentation
 4. Open an issue in the project repository
 

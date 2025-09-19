@@ -149,11 +149,12 @@ n-balot/
 
 ## 📈 Performance Metrics
 
-### **Model Performance**
-- **Accuracy**: 95%+ on test data
-- **Precision**: 94%+ for attack detection
-- **Recall**: 93%+ for attack detection
-- **F1-Score**: 94%+ overall performance
+### **Model Performance & Visualizations**
+- Metrics per model: Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC
+- Confusion matrices for all trained models
+- Combined ROC curves (AUC) across models
+- Combined Precision-Recall curves (Average Precision) across models
+- Isolation Forest AUCs are computed from anomaly scores (negative decision_function/score_samples)
 
 ### **System Requirements**
 - **RAM**: 4GB minimum, 8GB recommended

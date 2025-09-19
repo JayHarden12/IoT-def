@@ -10,7 +10,18 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    average_precision_score,
+    roc_curve,
+    precision_recall_curve,
+)
 from sklearn.decomposition import PCA
 import joblib
 import os
@@ -191,15 +202,37 @@ class IoTIntrusionDetector:
             if name == 'Isolation Forest':
                 model.fit(X_train_scaled)
                 y_pred = model.predict(X_test_scaled)
-                y_pred = np.where(y_pred == -1, 1, 0)  # Convert to binary
+                y_pred = np.where(y_pred == -1, 1, 0)  # Convert to binary (1 = attack/outlier)
+                # Use negative decision function as anomaly score (higher = more likely attack)
+                if hasattr(model, 'decision_function'):
+                    scores = -model.decision_function(X_test_scaled)
+                    y_proba = scores  # raw scores acceptable for AUC metrics
+                elif hasattr(model, 'score_samples'):
+                    scores = -model.score_samples(X_test_scaled)
+                    y_proba = scores
+                else:
+                    y_proba = None
             else:
                 model.fit(X_train_scaled, y_train)
                 y_pred = model.predict(X_test_scaled)
+                if hasattr(model, 'predict_proba'):
+                    y_proba = model.predict_proba(X_test_scaled)[:, 1]
+                elif hasattr(model, 'decision_function'):
+                    scores = model.decision_function(X_test_scaled)
+                    y_proba = scores
+                else:
+                    y_proba = None
             
             self.models[name] = {
                 'model': model,
                 'accuracy': accuracy_score(y_test, y_pred),
-                'predictions': y_pred
+                'precision': precision_score(y_test, y_pred, zero_division=0),
+                'recall': recall_score(y_test, y_pred, zero_division=0),
+                'f1': f1_score(y_test, y_pred, zero_division=0),
+                'roc_auc': (roc_auc_score(y_test, y_proba) if y_proba is not None else None),
+                'pr_auc': (average_precision_score(y_test, y_proba) if y_proba is not None else None),
+                'predictions': y_pred,
+                'probabilities': y_proba,
             }
         
         self.is_trained = True
@@ -405,26 +438,76 @@ def show_model_training(detector):
             st.subheader("Model Performance")
             
             for name, model_info in detector.models.items():
-                col1, col2 = st.columns([2, 1])
-                
-                with col1:
-                    st.write(f"**{name}**")
-                
-                with col2:
+                st.write(f"**{name}**")
+                mcol1, mcol2, mcol3, mcol4, mcol5, mcol6 = st.columns(6)
+                with mcol1:
                     st.metric("Accuracy", f"{model_info['accuracy']:.3f}")
+                with mcol2:
+                    st.metric("Precision", f"{(model_info.get('precision') or 0):.3f}")
+                with mcol3:
+                    st.metric("Recall", f"{(model_info.get('recall') or 0):.3f}")
+                with mcol4:
+                    st.metric("F1", f"{(model_info.get('f1') or 0):.3f}")
+                with mcol5:
+                    roc_val = model_info.get('roc_auc')
+                    st.metric("ROC-AUC", f"{roc_val:.3f}" if roc_val is not None else "N/A")
+                with mcol6:
+                    pr_val = model_info.get('pr_auc')
+                    st.metric("PR-AUC", f"{pr_val:.3f}" if pr_val is not None else "N/A")
             
-            # Confusion matrix for Random Forest
-            if 'Random Forest' in detector.models:
-                st.subheader("Confusion Matrix (Random Forest)")
-                y_pred = detector.models['Random Forest']['predictions']
+            # Confusion matrices for all models
+            st.subheader("Confusion Matrices")
+            for name, model_info in detector.models.items():
+                y_pred = model_info['predictions']
                 cm = confusion_matrix(y_test, y_pred)
-                
-                fig = px.imshow(cm, 
-                               text_auto=True,
-                               title="Confusion Matrix",
-                               labels=dict(x="Predicted", y="Actual"),
-                               color_continuous_scale='Blues')
+                fig = px.imshow(
+                    cm,
+                    text_auto=True,
+                    title=f"Confusion Matrix - {name}",
+                    labels=dict(x="Predicted", y="Actual"),
+                    color_continuous_scale='Blues'
+                )
                 st.plotly_chart(fig, use_container_width=True)
+
+            # ROC curves (combined)
+            st.subheader("ROC Curves")
+            roc_fig = go.Figure()
+            roc_fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Random', line=dict(dash='dash', color='gray')))
+            added_any = False
+            for name, model_info in detector.models.items():
+                y_score = model_info.get('probabilities')
+                if y_score is None:
+                    continue
+                fpr, tpr, _ = roc_curve(y_test, y_score)
+                auc_val = roc_auc_score(y_test, y_score)
+                roc_fig.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines', name=f"{name} (AUC={auc_val:.3f})"))
+                added_any = True
+            roc_fig.update_layout(xaxis_title='False Positive Rate', yaxis_title='True Positive Rate', height=400)
+            if added_any:
+                st.plotly_chart(roc_fig, use_container_width=True)
+            else:
+                st.info("No probability scores available to plot ROC curves.")
+
+            # Precision-Recall curves (combined)
+            st.subheader("Precision-Recall Curves")
+            pr_fig = go.Figure()
+            added_any_pr = False
+            # Baseline: positive class ratio
+            pos_ratio = (y_test == 1).mean() if hasattr(y_test, 'mean') else float(np.mean(y_test))
+            pr_fig.add_trace(go.Scatter(x=[0, 1], y=[pos_ratio, pos_ratio], mode='lines', name='Baseline', line=dict(dash='dash', color='gray')))
+            for name, model_info in detector.models.items():
+                y_score = model_info.get('probabilities')
+                if y_score is None:
+                    continue
+                precision, recall, _ = precision_recall_curve(y_test, y_score)
+                ap = average_precision_score(y_test, y_score)
+                pr_fig.add_trace(go.Scatter(x=recall, y=precision, mode='lines', name=f"{name} (AP={ap:.3f})"))
+                added_any_pr = True
+            pr_fig.update_layout(xaxis_title='Recall', yaxis_title='Precision', height=400)
+            if added_any_pr:
+                st.plotly_chart(pr_fig, use_container_width=True)
+            else:
+                st.info("No probability scores available to plot PR curves.")
 
 def show_realtime_monitoring(detector):
     """Display real-time monitoring page"""

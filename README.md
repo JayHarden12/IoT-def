@@ -8,6 +8,7 @@ A web-based IoT intrusion detection system for home and small office networks us
 - **Attack Detection**: ML models (Random Forest, K-Nearest Neighbors, Isolation Forest)
 - **Data Analysis**: Comprehensive analysis of network traffic patterns
 - **Interactive Dashboard**: User-friendly interface for monitoring and analysis
+- **Comprehensive Evaluation**: Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC; per-model confusion matrices; combined ROC and PR curves
 - **Report Generation**: Automated security reports and alerts
 
 ## Installation
@@ -52,8 +53,9 @@ A web-based IoT intrusion detection system for home and small office networks us
 
 ### Model Training
 - Train three ML models (Random Forest, K-Nearest Neighbors, Isolation Forest)
-- Model performance comparison
-- Confusion matrix visualization
+- Model performance comparison: Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC
+- Confusion matrices for all models
+- Combined ROC and Precision-Recall curve plots
 
 ### Real-time Monitoring
 - Live network traffic monitoring
@@ -77,6 +79,11 @@ The system uses three machine learning models for robust attack detection:
 1. **Random Forest**: Ensemble method for classification
 2. **K-Nearest Neighbors (KNN)**: Distance-based classification
 3. **Isolation Forest**: Unsupervised anomaly detection
+
+### Evaluation Metrics and Plots
+- Metrics: Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC
+- Visuals: Confusion matrices (per model), ROC curves, Precision-Recall curves (combined across models)
+- Isolation Forest AUCs are computed from anomaly scores (negative decision_function/score_samples), which are suitable for ranking-based metrics like ROC-AUC and PR-AUC.
 
 ## Dataset
 
