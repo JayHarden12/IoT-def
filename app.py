@@ -275,7 +275,7 @@ def main():
     
     # Header
     st.markdown('<h1 class="main-header">🛡️ IoT Intrusion Detection System</h1>', unsafe_allow_html=True)
-    st.markdown("### Web-based IoT intrusion detection for home and small office networks using N-BaIoT")
+    st.markdown("### Web-based IoT intrusion detection for home networks using N-BaIoT")
     
     # Sidebar
     st.sidebar.title("Navigation")
@@ -675,3 +675,4 @@ def show_reports(detector):
 
 if __name__ == "__main__":
     main()
+
